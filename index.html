@@ -3,25 +3,95 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fotos de Nuestra Boda</title>
+  <title>Boda - Fotos y Mensajes</title>
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
+
   <style>
-    body { font-family: sans-serif; background: #f9f9f9; margin: 0; padding: 20px; }
-    header { text-align: center; padding: 40px 0; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    h1 { margin: 0; font-size: 2.5em; }
-    form { max-width: 500px; margin: 40px auto; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    input, textarea { width: 100%; margin: 10px 0; padding: 10px; font-size: 1em; border: 1px solid #ccc; border-radius: 5px; }
-    button { padding: 10px 20px; font-size: 1em; background: #007BFF; color: #fff; border: none; border-radius: 5px; cursor: pointer; }
-    button:hover { background: #0056b3; }
-    .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; padding: 20px; }
-    .gallery img { width: 100%; border-radius: 10px; object-fit: cover; }
+    body { 
+      font-family: 'Arial', sans-serif; 
+      background: #f9e3e3; /* Rosa pastel */
+      color: #333; 
+      margin: 0; 
+      padding: 20px; 
+    }
+    header { 
+      text-align: center; 
+      padding: 40px 0; 
+      background: #fff; 
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      font-family: 'Georgia', serif;
+    }
+    h1 { 
+      margin: 0; 
+      font-size: 2.5em; 
+      color: #d4af37; /* Dorado */
+    }
+    h2 {
+      color: #d4af37;
+    }
+    form {
+      max-width: 500px;
+      margin: 40px auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    input, textarea {
+      width: 100%;
+      margin: 10px 0;
+      padding: 10px;
+      font-size: 1em;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 1em;
+      background: #d4af37; /* Dorado */
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #c59d30; /* Dorado oscuro */
+    }
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+      padding: 20px;
+    }
+    .gallery img {
+      width: 100%;
+      border-radius: 10px;
+      object-fit: cover;
+    }
+    .floral-border {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      background-image: url('floral-border.png'); /* Imagen floral sutil */
+      background-repeat: no-repeat;
+      background-size: cover;
+      opacity: 0.1;
+    }
   </style>
 </head>
 <body>
+  <div class="floral-border"></div>
   <header>
-    <h1>Fotos de Nuestra Boda</h1>
-    <p>Sube tus fotos favoritas para compartir con todos</p>
+    <h1>Boda - Fotos y Mensajes</h1>
+    <p>Comparte tus recuerdos de nuestra boda</p>
   </header>
 
+  <h2>Sube tu Foto</h2>
   <form id="uploadForm">
     <input type="text" id="nombre" placeholder="Tu nombre" required />
     <textarea id="comentario" placeholder="Comentario (opcional)"></textarea>
@@ -29,13 +99,34 @@
     <button type="submit">Subir Foto</button>
   </form>
 
+  <h2>Deja un Mensaje</h2>
+  <form id="messageForm">
+    <input type="text" id="messageName" placeholder="Tu nombre" required />
+    <textarea id="message" placeholder="Tu mensaje" required></textarea>
+    <button type="submit">Enviar Mensaje</button>
+  </form>
+
   <div class="gallery" id="galeria">
     <!-- Las imágenes se mostrarán aquí -->
   </div>
 
   <script>
+    // Configuración de Firebase
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    const app = firebase.initializeApp(firebaseConfig);
+    const storage = firebase.storage();
+    const db = firebase.firestore();
+
     const form = document.getElementById('uploadForm');
     const galeria = document.getElementById('galeria');
+    const messageForm = document.getElementById('messageForm');
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -46,14 +137,38 @@
       if (fileInput.files.length === 0) return alert("Por favor selecciona una foto.");
 
       const file = fileInput.files[0];
-      const reader = new FileReader();
-      reader.onload = function (event) {
-        const img = document.createElement('img');
-        img.src = event.target.result;
-        galeria.appendChild(img);
-        form.reset();
-      };
-      reader.readAsDataURL(file);
+      const storageRef = storage.ref('photos/' + file.name);
+      await storageRef.put(file);
+      const photoURL = await storageRef.getDownloadURL();
+
+      // Guardar en la galería
+      const img = document.createElement('img');
+      img.src = photoURL;
+      galeria.appendChild(img);
+
+      // Subir los datos al Firestore
+      await db.collection('photos').add({
+        nombre: nombre,
+        comentario: comentario,
+        url: photoURL
+      });
+
+      form.reset();
+    });
+
+    messageForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('messageName').value;
+      const message = document.getElementById('message').value;
+
+      // Guardar el mensaje en Firestore
+      await db.collection('messages').add({
+        name: name,
+        message: message,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      messageForm.reset();
     });
   </script>
 </body>
